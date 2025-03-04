@@ -7,7 +7,7 @@
 6. Annotation with snpeff
 7. Annotation with gff & creating the nice table
 8. Generating statistics
-
+9. Final filters
 
 ### 1. Generating config file
 ```
@@ -139,9 +139,17 @@ python 10_10_get_vcf_info.py ${DIR}/${VCF_core}_INFO.tab
 # Format table with bedtools output and combine with info table
 python 10_11_bedtools_nice_table.py ${DIR}/${VCF_core}_gff.tab ${DIR}/${VCF_core}_INFO_EXT.tab
 ```
-### 8. Generating statistics
+### 8. Generating statistics & plots
 vcftools v0.1.16
 ```
 vcftools --gzvcf ${DIR}/${NAME}.vcf.gz --missing-indv --out ${DIR}/${NAME}
 vcftools --gzvcf ${DIR}/${NAME}.vcf.gz --missing-site --out ${DIR}/${NAME}
+
+python 10_13_overview.py 10_variants/bcftools_FLT_snpEff_nice_table.tab
+```
+### 9. Final filters
+vcftools v0.1.16
+Masking genotypes with GQ < 20, removing samples of poor quality, and removing variants with less than 2 alleles
+```
+vcftools --gzvcf $DIR/bcftools_FLT_snpEff.vcf.gz --remove ${EXCL} --remove-filtered-all --minGQ ${min_GQ} --min-alleles ${MIN_ALL} --recode --recode-INFO-all --out ${DIR}/bcftools_FLT2_snpEff
 ```
