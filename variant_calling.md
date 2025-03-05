@@ -35,7 +35,7 @@ MIN_MQ = 40 # minimum mapping quality
 AVG_SAMPLE_DP = 10 # mean average depth across samples
 MAX_INFO_DP = N_SAMPLES * 200 # maximum sample depth, set automatically
 MIN_AF = 0.0 # allele frequency of minor allele  - 0 means it is not set
-BIALLELIC = False # biallelic only or multialleleic - biallelic used
+BIALLELIC = False # biallelic only or multialleleic - multiallelic used
 THREADS=9
 ```
 
