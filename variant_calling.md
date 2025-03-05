@@ -8,6 +8,9 @@
 7. Annotation with gff & creating the nice table
 8. Generating statistics
 9. Final filters
+10. Generating statistics
+11. Creating table with annotations
+12. Getting additional stats
 
 ### 1. Generating config file
 ```
@@ -149,7 +152,86 @@ python 10_13_overview.py 10_variants/bcftools_FLT_snpEff_nice_table.tab
 ```
 ### 9. Final filters
 vcftools v0.1.16  
+bcftools v1.17
+
+```
+sh 11_01_filter.sh
+```
+
 Masking genotypes with GQ < 20, removing samples of poor quality, and removing variants with less than 2 alleles
 ```
 vcftools --gzvcf $DIR/bcftools_FLT_snpEff.vcf.gz --remove ${EXCL} --remove-filtered-all --minGQ ${min_GQ} --min-alleles ${MIN_ALL} --recode --recode-INFO-all --out ${DIR}/bcftools_FLT2_snpEff
+bgzip ${DIR}/bcftools_FLT2_snpEff.recode.vcf
+bcftools view -m2 -Oz -o ${DIR}/bcftools_FLT2_snpEff_with_dubliniensis.vcf.gz ${DIR}/bcftools_FLT2_snpEff.recode.vcf
+tabix -f -p vcf ${DIR}/bcftools_FLT2_snpEff_with_dubliniensis.vcf.gz
 ```
+Parameters set:
+min_GQ=20  
+MIN_ALL=2  
+EXCL # list of samples to exclude  
+
+Another variant set without the two outgroup samples
+```
+SAMP=samples_to_keep.txt
+bcftools view -m2 -S $SAMP -Oz -o ${DIR}/bcftools_FLT2_snpEff.vcf.gz ${DIR}/bcftools_FLT2_snpEff.recode.vcf.gz
+tabix -f -p vcf ${DIR}/bcftools_FLT2_snpEff.vcf.gz
+```
+
+### 10. Generating statistics
+vcftools v0.1.16  
+bcftools v1.17
+```
+sh 11_02_stats.sh
+```
+
+```
+bcftools query -l ${DIR}/${NAME}.vcf.gz > ${DIR}/${NAME}_samples.txt
+bcftools stats -s - ${DIR}/${NAME}.vcf.gz > ${DIR}/${NAME}.stats
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%TYPE\t%QUAL\t%INFO\n' ${DIR}/${NAME}.vcf.gz > ${DIR}/${NAME}.INFO
+gzip -f ${DIR}/${NAME}.INFO
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/INDEL[\t%GT]\n' ${DIR}/${NAME}.vcf.gz > ${DIR}/${NAME}_GT.tab
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/INDEL[\t%DP]\n' ${DIR}/${NAME}.vcf.gz > ${DIR}/${NAME}_DP.tab
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/INDEL[\t%GQ]\n' ${DIR}/${NAME}.vcf.gz > ${DIR}/${NAME}_GQ.tab
+vcftools --gzvcf ${DIR}/${NAME}.vcf.gz --missing-indv --out ${DIR}/${NAME}
+vcftools --gzvcf ${DIR}/${NAME}.vcf.gz --missing-site --out ${DIR}/${NAME}
+vcftools --gzvcf ${DIR}/${NAME}.vcf.gz --het --out ${DIR}/${NAME}
+vcftools --gzvcf ${DIR}/${NAME}.vcf.gz --depth --out ${DIR}/${NAME}
+```
+
+### 11. Creating table with annotations
+bcftools v1.17
+bedtools v2.31.0
+```
+sh 11_03_get_gff_annotation.sh
+```
+
+```
+echo "1. Get variant positions in bed"
+bcftools query -f '%CHROM\t%POS0\t%POS\n' ${VCF} > ${DIR}/${NAME}.bed
+
+echo "2. gff to bed"
+python 11_04_gff2bed.py ${GFF} ${DIR}
+
+echo "3. Intersection of vcf with gff"
+conda activate bedtools
+VCF_core=$(basename $VCF | sed 's/.vcf.gz//g')
+GFF_core=$(basename $GFF | sed 's/.gff//g')
+sort -k1,1 -k2,2n ${DIR}/${VCF_core}.bed > ${DIR}/${VCF_core}_sorted.bed
+sort -k1,1 -k2,2n ${DIR}/${GFF_core}.bed > ${DIR}/${GFF_core}_sorted.bed
+bedtools intersect -wao -a ${DIR}/${VCF_core}_sorted.bed -b ${DIR}/${GFF_core}_sorted.bed > ${DIR}/${VCF_core}_gff.tab
+
+echo "4. Getting info table with snpEff annotations"
+python 11_05_get_ANN_info.py ${DIR}/${VCF_core}.INFO.gz
+
+echo "5. Formatting table"
+python 11_06_format_gff.py ${DIR}/${VCF_core}_gff.tab ${DIR}/${VCF_core}_INFO_ANN.tab
+```
+
+### 12. Getting additional stats
+Such as the proportion of heterozygotes and mean DP and combining them to form the nice table
+```
+11_07_get_DP.ipynb
+11_08_get_GT.ipynb
+11_09_combine_tables.ipynb
+```
+
